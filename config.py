@@ -5,3 +5,6 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 BACKEND_URL = os.getenv("BACKEND_URL")
+
+BOT_LOGIN_EMAIL = os.getenv("BOT_LOGIN_EMAIL")
+BOT_LOGIN_PASSWORD = os.getenv("BOT_LOGIN_PASSWORD")
