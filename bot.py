@@ -23,7 +23,6 @@ def get_headers():
 def backend_login() -> bool:
     global access_token
 
-    # TO‘G‘RI LOGIN ENDPOINT
     url = f"{BACKEND_URL}/login"
 
     payload = {
@@ -39,7 +38,6 @@ def backend_login() -> bool:
             return False
 
         data = resp.json()
-
         token = data.get("access_token")
         if not token:
             print("Backend login response missing access_token:", data)
@@ -74,7 +72,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payload = {"user_id": str(user_id), "message": text}
 
     try:
-        # TO‘G‘RI ENDPOINT
         url = f"{BACKEND_URL}/chat/send"
 
         resp = requests.post(url, json=payload, headers=get_headers(), timeout=30)
