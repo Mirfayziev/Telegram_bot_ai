@@ -27,9 +27,9 @@ if not BACKEND_URL:
     logger.error("❌ BACKEND_URL topilmadi!")
     raise SystemExit
 
-API_LOGIN = f"{BACKEND_URL}/api/v1/auth/login"
-API_REGISTER = f"{BACKEND_URL}/api/v1/auth/register"
-API_CHAT = f"{BACKEND_URL}/api/v1/chat/send"
+API_LOGIN = f"{BACKEND_URL}/api/auth/login"
+API_REGISTER = f"{BACKEND_URL}/api/auth/register"
+API_CHAT = f"{BACKEND_URL}/api/chat/send"
 
 BOT_EMAIL = "bot@azizai.com"
 BOT_PASSWORD = "supersecretpassword123"
