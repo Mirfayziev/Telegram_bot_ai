@@ -3,8 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-BACKEND_URL = os.getenv("BACKEND_URL")
+BOT_TOKEN = "TELEGRAM_BOT_TOKENINGNI_BU_YERGA_QOY"
 
-BOT_LOGIN_EMAIL = os.getenv("BOT_LOGIN_EMAIL")
-BOT_LOGIN_PASSWORD = os.getenv("BOT_LOGIN_PASSWORD")
+BACKEND_URL = "https://ai-maksimal-production.up.railway.app"
+
+BOT_LOGIN_EMAIL = "Fayziev978@mail.ru"
+BOT_LOGIN_PASSWORD = "123456"
