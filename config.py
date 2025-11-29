@@ -3,8 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = "8574083904:AAE0x8QSqI7-ZMn52uy4qH31zIzhXNg4Blo"
-
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 BACKEND_URL = "https://ai-maksimal-production.up.railway.app"
 
 BOT_LOGIN_EMAIL = "Fayziev978@mail.ru"
