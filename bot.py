@@ -1,31 +1,86 @@
+import os
+import logging
 import requests
+import sys
 from telegram import Update
 from telegram.ext import (
-    Application,
-    CommandHandler,
+    ApplicationBuilder,
     MessageHandler,
+    CommandHandler,
     ContextTypes,
     filters,
 )
-from config import BOT_TOKEN, BACKEND_URL, BOT_LOGIN_EMAIL, BOT_LOGIN_PASSWORD
 
-access_token: str | None = None
+# ================================
+#  LOGGING
+# ================================
+logging.basicConfig(
+    format="%(asctime)s - BOT - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
+
+# ================================
+#  CONFIG
+# ================================
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://aimaksimal-production.up.railway.app")
+
+# Bot user login credentials (auto-register ishlatadi)
+BOT_LOGIN_EMAIL = os.getenv("BOT_LOGIN_EMAIL", "bot@telegram.user")
+BOT_LOGIN_PASSWORD = os.getenv("BOT_LOGIN_PASSWORD", "azizai")
+
+# Global token
+access_token = None
 
 
-def get_headers():
-    global access_token
-    headers = {"Content-Type": "application/json"}
-    if access_token:
-        headers["Authorization"] = f"Bearer {access_token}"
-    return headers
-
-
+# ================================
+#  BACKEND LOGIN
+# ================================
 def backend_login() -> bool:
+    """Backendga login qilish."""
     global access_token
 
-    url = f"{BACKEND_URL}/auth/login"   # TO'G'RILANDI !!!
-
+    url = f"{BACKEND_URL}/auth/login"
     payload = {
+        "email": BOT_LOGIN_EMAIL,
+        "password": BOT_LOGIN_PASSWORD
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=20)
+
+        if resp.status_code == 401:
+            logger.warning("User not found. Auto-registering...")
+            return backend_register()
+
+        if resp.status_code != 200:
+            logger.error(f"Login failed [{resp.status_code}]: {resp.text}")
+            return False
+
+        data = resp.json()
+        access_token = data.get("access_token")
+
+        if not access_token:
+            logger.error(f"Login response missing token: {data}")
+            return False
+
+        logger.info("Backend login successful")
+        return True
+
+    except Exception as e:
+        logger.error(f"Login exception: {e}")
+        return False
+
+
+# ================================
+#  AUTO REGISTER
+# ================================
+def backend_register() -> bool:
+    """Agar user bo‘lmasa — auto register."""
+    url = f"{BACKEND_URL}/auth/register"
+    payload = {
+        "full_name": "AzizAI Telegram User",
         "email": BOT_LOGIN_EMAIL,
         "password": BOT_LOGIN_PASSWORD,
     }
@@ -33,75 +88,92 @@ def backend_login() -> bool:
     try:
         resp = requests.post(url, json=payload, timeout=20)
 
-        if resp.status_code != 200:
-            print("Backend login failed:", resp.status_code, resp.text)
+        if resp.status_code not in [200, 201]:
+            logger.error(f"Auto-register failed [{resp.status_code}]: {resp.text}")
             return False
 
-        data = resp.json()
-        token = data.get("access_token")
-        if not token:
-            print("Backend login response missing access_token:", data)
-            return False
-
-        access_token = token
-        print("Backend login successful")
-        return True
+        logger.info("User auto-registered!")
+        return backend_login()
 
     except Exception as e:
-        print("Backend login exception:", e)
+        logger.error(f"Register exception: {e}")
         return False
 
 
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Assalomu alaykum! Aziz AI 10.0 Telegram yordamchisiga xush kelibsiz."
-    )
-
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ================================
+#  SEND MESSAGE TO AI BACKEND
+# ================================
+def ask_backend_ai(message: str) -> str:
+    """Backendga AI so‘rovi yuboradi."""
     global access_token
-
-    user_id = update.message.from_user.id
-    text = update.message.text
 
     if not access_token:
         if not backend_login():
-            await update.message.reply_text("❌ Backend login bo'lmadi.")
-            return
+            return "❌ Backend bilan ulanishda xatolik."
 
-    payload = {"user_id": str(user_id), "message": text}
+    url = f"{BACKEND_URL}/chat/send"
 
     try:
-        url = f"{BACKEND_URL}/chat/send"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        payload = {"message": message}
 
-        resp = requests.post(url, json=payload, headers=get_headers(), timeout=30)
+        resp = requests.post(url, json=payload, headers=headers, timeout=25)
 
+        # Token eskirgan bo‘lsa → qayta login
         if resp.status_code == 401:
-            if backend_login():
-                resp = requests.post(url, json=payload, headers=get_headers(), timeout=30)
-            else:
-                await update.message.reply_text("❌ Auth xatosi.")
-                return
+            logger.warning("Token expired, relogin...")
+            backend_login()
+            return ask_backend_ai(message)
 
         if resp.status_code != 200:
-            await update.message.reply_text(f"❌ Backend xato: {resp.status_code}")
-            print(resp.text)
-            return
+            logger.error(f"Chat failed [{resp.status_code}]: {resp.text}")
+            return "❌ AI server javob qaytarmadi."
 
-        reply = resp.json().get("reply") or "⚠ Javob topilmadi."
-        await update.message.reply_text(reply)
+        data = resp.json()
+        return data.get("response", "❌ Javob topilmadi.")
 
     except Exception as e:
-        print("Bot exception:", e)
-        await update.message.reply_text("❌ Serverga ulanishda xato.")
+        logger.error(f"AI exception: {e}")
+        return "❌ AI bilan ulanishda xatolik."
 
 
+# ================================
+#  HANDLERS
+# ================================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Assalomu alaykum! Aziz AI 10.0 yordamchisiga xush kelibsiz.\n"
+        "Menga xohlagan savolingizni yuboring."
+    )
+
+
+async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_message = update.message.text
+
+    response = ask_backend_ai(user_message)
+
+    await update.message.reply_text(response)
+
+
+# ================================
+#  MAIN
+# ================================
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    if not TELEGRAM_TOKEN:
+        logger.error("❌ TELEGRAM_BOT_TOKEN topilmadi!")
+        sys.exit()
+
+    logger.info("Bot starting...")
+
+    # Ishga tushayotganda backendga login
+    backend_login()
+
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("Bot running...")
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
+
+    logger.info("Bot polling started.")
     app.run_polling()
 
 
