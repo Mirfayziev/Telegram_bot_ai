@@ -1,6 +1,5 @@
 import os
 import logging
-import asyncio
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
@@ -28,55 +27,52 @@ if not BACKEND_URL:
     logger.error("❌ BACKEND_URL topilmadi!")
     raise SystemExit
 
-# To‘liq backend URL misol:
-# https://aimaksimal-production.up.railway.app
 API_LOGIN = f"{BACKEND_URL}/api/v1/auth/login"
 API_REGISTER = f"{BACKEND_URL}/api/v1/auth/register"
 API_CHAT = f"{BACKEND_URL}/api/v1/chat/send"
 
-# ==============================================
-# Auto Register + Auto Login
-# ==============================================
 BOT_EMAIL = "bot@azizai.com"
 BOT_PASSWORD = "supersecretpassword123"
 
-
-async def backend_register():
+# ==============================================
+# BACKEND FUNCTIONS
+# ==============================================
+def backend_register():
     try:
-        response = requests.post(API_REGISTER, json={
+        r = requests.post(API_REGISTER, json={
             "email": BOT_EMAIL,
             "full_name": "Telegram Bot",
             "password": BOT_PASSWORD
         })
 
-        if response.status_code == 200:
-            logger.info("🟢 Backendda yangi bot foydalanuvchi yaratildi.")
+        if r.status_code == 200:
+            logger.info("🟢 Bot backendda ro'yxatdan o'tdi.")
             return True
-        elif response.status_code == 400:
-            logger.info("ℹ️ Bot foydalanuvchisi allaqachon mavjud.")
+
+        if r.status_code == 400:
+            logger.info("ℹ️ Bot foydalanuvchi allaqachon mavjud.")
             return True
-        else:
-            logger.error(f"❌ Register error: {response.status_code} {response.text}")
-            return False
+
+        logger.error(f"❌ Register error: {r.status_code} {r.text}")
+        return False
 
     except Exception as e:
         logger.error(f"❌ Register exception: {e}")
         return False
 
 
-async def backend_login():
+def backend_login():
     try:
-        response = requests.post(API_LOGIN, json={
+        r = requests.post(API_LOGIN, json={
             "email": BOT_EMAIL,
             "password": BOT_PASSWORD
         })
 
-        if response.status_code == 200:
-            token = response.json().get("access_token")
-            logger.info("🟢 Backend login muvaffaqiyatli.")
-            return token
+        if r.status_code == 200:
+            logger.info("🟢 Backend login OK.")
+            return r.json().get("access_token")
 
-        logger.error(f"❌ Login error: {response.status_code} {response.text}")
+        logger.error(f"❌ Login error: {r.status_code} {r.text}")
         return None
 
     except Exception as e:
@@ -85,58 +81,53 @@ async def backend_login():
 
 
 # ==============================================
-# Handlers
+# HANDLERS
 # ==============================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Assalomu alaykum! Aziz AI 10.0 Telegram yordamchisiga xush kelibsiz.\n"
+        "Assalomu alaykum! Aziz AI 10.0 Telegram yordamchisiga xush kelibsiz."
     )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
 
-    # Backend tokenni olish
-    token = await backend_login()
+    token = backend_login()
     if not token:
-        await update.message.reply_text("❌ Backend bilan aloqa o‘rnatilmadi.")
+        await update.message.reply_text("❌ Backend bilan aloqa bo‘lmadi.")
         return
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Backendga so‘rov jo‘natish
     try:
-        response = requests.post(API_CHAT, json={"message": user_text}, headers=headers)
+        r = requests.post(API_CHAT, json={"message": user_text}, headers=headers)
 
-        if response.status_code == 200:
-            bot_reply = response.json().get("reply", "❌ Javob topilmadi.")
-            await update.message.reply_text(bot_reply)
+        if r.status_code == 200:
+            reply = r.json().get("reply", "❌ Javob topilmadi.")
+            await update.message.reply_text(reply)
         else:
-            await update.message.reply_text("❌ Backend javob bermadi.")
-
+            await update.message.reply_text("❌ Backend xatosi.")
     except Exception as e:
+        logger.error(e)
         await update.message.reply_text("❌ Xatolik yuz berdi.")
-        logger.error(f"Chat error: {e}")
 
 
 # ==============================================
-# MAIN
+# MAIN (SYNC, TO‘G‘RI VARIANT)
 # ==============================================
-async def main():
+def main():
     logger.info("🚀 Bot starting...")
 
-    # Avval register → keyin login
-    await backend_register()
+    backend_register()
 
-    # Telegram botni ishga tushirish
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     logger.info("🟢 Bot polling started.")
-    await app.run_polling()
+    application.run_polling()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
