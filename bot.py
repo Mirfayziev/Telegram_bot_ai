@@ -23,7 +23,7 @@ def get_headers():
 def backend_login() -> bool:
     global access_token
 
-    url = f"{BACKEND_URL}/login"
+    url = f"{BACKEND_URL}/auth/login"   # TO'G'RILANDI !!!
 
     payload = {
         "email": BOT_LOGIN_EMAIL,
@@ -50,6 +50,7 @@ def backend_login() -> bool:
     except Exception as e:
         print("Backend login exception:", e)
         return False
+
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
