@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = "TELEGRAM_BOT_TOKENINGNI_BU_YERGA_QOY"
+BOT_TOKEN = "8574083904:AAE0x8QSqI7-ZMn52uy4qH31zIzhXNg4Blo"
 
 BACKEND_URL = "https://ai-maksimal-production.up.railway.app"
 
